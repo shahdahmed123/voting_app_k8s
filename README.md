@@ -63,4 +63,4 @@ The application is split into 5 main components:
    │ (ClusterIP)    │           │ (PVC Attached)  │
    └────────────────┘           └────────────────┘
 
-ت
+

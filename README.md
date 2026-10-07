@@ -1,66 +1,81 @@
 # 🗳️ Voting App on Kubernetes
 
-This project deploys a **Voting Application** on Kubernetes using multiple microservices, each running in its own Pod.  
-The stack includes **frontend, backend, worker, database, and cache**.
+A multi-service voting application deployed on Kubernetes (kubeadm, single node),
+exposed through an NGINX Ingress. Users vote between two options, and results
+appear in real time on a separate page.
 
----
+Based on the Docker sample voting app images (`dockersamples/examplevotingapp_*`).
+This repo contains only the Kubernetes manifests.
 
-## 🚀 Architecture
+## Architecture
 
-The application is split into 5 main components:
+```
+Browser → Ingress (vote.local / result.local)
+              │
+        ┌─────┴──────┐
+      vote         result
+        │             │
+      redis ← worker → postgres (PV/PVC)
+```
 
-1. **Vote App (Frontend)**  
-   - A Python/Flask web app.  
-   - Allows users to vote between two options (e.g., 🐶 Dogs vs 🐱 Cats).  
-   - Exposed using a **NodePort Service** (default: `30001`).
+| Component | Role | Exposure |
+|-----------|------|----------|
+| vote (Flask) | Voting page, 2 replicas | via Ingress |
+| redis | Temporary vote queue | ClusterIP |
+| worker (.NET) | Moves votes from Redis to Postgres | none |
+| postgres | Persistent results storage | ClusterIP |
+| result (Node.js) | Live results page | via Ingress |
 
-2. **Redis (In-Memory Store)**  
-   - Stores incoming votes temporarily.  
-   - Works as a **queue** for fast writes.
+## Kubernetes concepts used
 
-3. **Worker**  
-   - A background processor (written in .NET/C#).  
-   - Consumes votes from Redis and stores results in Postgres.
+- Namespace, Deployments, Services (ClusterIP)
+- Secret for database credentials
+- PersistentVolume + PersistentVolumeClaim (data survives Pod deletion)
+- Ingress with host-based routing (NGINX Ingress Controller)
+- Readiness / liveness / startup probes
+- Resource requests and limits
+- `Recreate` strategy for the database (a single writer on the volume)
 
-4. **Postgres (Database)**  
-   - Stores the final, persistent voting results.  
-   - Data persists with a **PersistentVolumeClaim (PVC)**.
+## Prerequisites
 
-5. **Result App (Frontend)**  
-   - A Node.js web app.  
-   - Reads results from Postgres and displays them in real-time.  
-   - Exposed using a **NodePort Service** (default: `30002`).
+- A running Kubernetes cluster and `kubectl`
+- NGINX Ingress Controller (bare metal):
+```bash
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.15.1/deploy/static/provider/baremetal/deploy.yaml
+```
+- Recommended: 2+ CPUs and 4 GB+ RAM
 
----
+## Deploy
 
-## 🏗️ Kubernetes Resources
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/
+kubectl get pods -n voting
+```
 
-- **Deployments** → Manage Pods for each component (vote, result, worker, redis, postgres).  
-- **Services (NodePort/ClusterIP)** → Handle communication between components.  
-- **ConfigMap / Secret** → Store environment variables and DB credentials.  
-- **PersistentVolumeClaim** → Store Postgres data permanently.  
-- **NetworkPolicy** → (Optional) Restrict communication paths.
+The PersistentVolume uses `hostPath` (`/mnt/data/postgres`), suitable for a
+single-node lab cluster only.
 
----
+## Access
 
-## 📌 High-Level Diagram
+Add this line to your `hosts` file, using your node's IP:
 
-```plaintext
-               ┌─────────────────────────┐
-               │        Users            │
-               └──────────┬──────────────┘
-                          │
-            ┌─────────────┼──────────────┐
-            │                            │
-   ┌────────▼────────┐          ┌────────▼────────┐
-   │   Vote App      │          │   Result App    │
-   │ (NodePort 30001)│          │ (NodePort 30002)│
-   └───────┬─────────┘          └────────┬────────┘
-           │                             │
-           │                             │
-   ┌───────▼────────┐           ┌────────▼────────┐
-   │     Redis      │ <──Worker─┤    Postgres     │
-   │ (ClusterIP)    │           │ (PVC Attached)  │
-   └────────────────┘           └────────────────┘
+```
+<NODE-IP>  vote.local  result.local
+```
 
+Then open:
+- http://vote.local
+- http://result.local
 
+## Notes
+
+- `db-secret.yaml` contains demo credentials (`postgres/postgres`) because the
+  sample images expect them. Never commit real secrets to Git.
+- With a plain Flannel CNI, NetworkPolicies are not enforced.
+
+## Cleanup
+
+```bash
+kubectl delete -f k8s/
+```

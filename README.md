@@ -169,7 +169,6 @@ Verify that the storage is bound:
 kubectl get pv,pvc -n voting
 ```
 
-![PV and PVC bound](images/pvc.png)
 
 > `STATUS: Bound` on both the PV and the PVC means the database has persistent storage.
 
@@ -182,7 +181,6 @@ kubectl logs deploy/worker -n voting
 
 The worker consumes votes from Redis and writes them to PostgreSQL. It **has no Service** because it only makes outgoing connections and nobody connects to it. It also creates the `votes` table automatically on first run.
 
-![Worker logs](images/worker-logs.png)
 
 > The logs confirm the worker connected to both the database and Redis, which also proves Kubernetes DNS resolution works.
 
@@ -210,8 +208,6 @@ The Ingress routes traffic based on the requested host name:
 |------|-----------------|
 | `vote.local` | `vote:80` |
 | `result.local` | `result:80` |
-
-![Ingress](images/ingress.png)
 
 Add the node IP to your `hosts` file so the names resolve:
 

@@ -275,7 +275,6 @@ Inspect the configuration of a running Pod:
 kubectl describe pod -l app=vote -n voting | grep -E "Liveness|Readiness|Startup|Limits|Requests" -A2
 ```
 
-![Probes and resources](images/probes.png)
 
 ---
 
@@ -288,7 +287,6 @@ kubectl delete pod -l app=db -n voting
 kubectl get pods -n voting
 ```
 
-![Persistence test](images/persistence.png)
 
 After the new Pod is `Running`, refresh `http://result.local`: **the previous votes are still there**, because the data lives on the PersistentVolume, not inside the Pod.
 
